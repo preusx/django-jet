@@ -150,5 +150,8 @@ class ModelLookupForm(forms.Form):
             qs.distinct()[offset:offset + limit]
         ))
         total = qs.count()
+        
+        # important to have a possibility to select an empty value         
+        items.insert(0, {'id': 0, 'text': '----------'})
 
         return items, total
