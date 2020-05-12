@@ -129,6 +129,9 @@ class ModelLookupForm(forms.Form):
         qs = self.model_cls.objects
 
         if self.cleaned_data['q']:
+            if getattr(self.model_cls, 'autocomplete_base_filters', None):
+                filters = self.model_cls.autocomplete_base_filters()
+                qs = qs.filter(**filters)
             if getattr(self.model_cls, 'autocomplete_search_fields', None):
                 search_fields = self.model_cls.autocomplete_search_fields()
                 filter_data = [Q((field + '__icontains', self.cleaned_data['q'])) for field in search_fields]
@@ -144,8 +147,11 @@ class ModelLookupForm(forms.Form):
 
         items = list(map(
             lambda instance: {'id': instance.pk, 'text': get_model_instance_label(instance)},
-            qs.all()[offset:offset + limit]
+            qs.distinct()[offset:offset + limit]
         ))
         total = qs.count()
+        
+        # important to have a possibility to select an empty value         
+        items.insert(0, {'id': 0, 'text': '----------'})
 
         return items, total
