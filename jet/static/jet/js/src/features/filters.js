@@ -27,7 +27,6 @@ var parseQueryStringToDictionary = function(queryString) {
 
 		dictionary[key] = value;
 	}
-
 	return dictionary;
 };
 
@@ -40,6 +39,7 @@ Filters.prototype = {
             if (multiple) {
                 $select.data('previous-options', $select.find('option:selected'));
             }
+
 
             $select.on('change', function() {
                 var $select = $(this);
@@ -66,12 +66,15 @@ Filters.prototype = {
                 var url = $selectedOption.data('url');
                 var querysetLookup = $select.data('queryset--lookup');
 
-                if (url) {
+                if (url && url !== 'undefined') {
                     document.location = $selectedOption.data('url');
                 } else if (querysetLookup) {
                     var params = parseQueryStringToDictionary(document.location.search);
                     params[querysetLookup] = $selectedOption.val();
                     document.location.search = Object.keys(params).map(function (k) {
+                        if (!params[k]) {
+                            return ''
+                        }
                         return encodeURIComponent(k) + '=' + encodeURIComponent(params[k])
                     }).join('&');
 
