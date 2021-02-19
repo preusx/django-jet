@@ -16,7 +16,8 @@ PaginatorUpdater.prototype = {
             if (($node.prev().prop('tagName') == 'A' || $node.prev().prop('tagName') == 'SPAN')
                 && ($node.next().prop('tagName') == 'A' || $node.next().prop('tagName') == 'SPAN')) {
 
-                if ($.trim($node.text()) == '...') {
+                // if ($.trim($node.text()) == '...') {
+                if (['...', '…'].includes($.trim($node.text()))) {
                     $node.wrap($('<span>').addClass('disabled'));
                 } else if ($.trim($node.text()) == '') {
                     $node.remove();
