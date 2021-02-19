@@ -99,7 +99,7 @@ class ModelLookupForm(forms.Form):
     q = forms.CharField(required=False)
     page = forms.IntegerField(required=False)
     page_size = forms.IntegerField(required=False, min_value=1, max_value=1000)
-    object_id = forms.IntegerField(required=False)
+    # object_id = forms.IntegerField(required=False)
     model_cls = None
 
     def __init__(self, request, *args, **kwargs):
