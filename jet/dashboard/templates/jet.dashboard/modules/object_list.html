@@ -1,0 +1,21 @@
+{% load i18n %}
+
+<ul>
+    {% for child in module.children %}
+        {% if child.warning %}
+        <li>
+            <span class="warning">{{ child.title }}</span>
+        </li>
+        {% else %}
+        <li>
+            {% for element in child %}
+                {{ element }}
+            {% endfor %}
+        </li>
+        {% endif %}
+    {% empty %}
+        <li>
+            {% translate "Nothing to show" %}
+        </li>
+    {% endfor %}
+</ul>
