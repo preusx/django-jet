@@ -153,6 +153,9 @@ body {
 .popup .colM {
   width: auto;
 }
+.select2-container--default + .select2-container--jet {
+  display: none;
+}
 
 @import "jquery-ui/jquery-ui.theme";
 @import "select2/layout";
