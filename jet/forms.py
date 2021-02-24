@@ -126,18 +126,27 @@ class ModelLookupForm(forms.Form):
         return data
 
     def lookup(self):
-        qs = self.model_cls.objects
+        qs = self.model_cls.objects.all()
+
+        if getattr(self.model_cls, 'autocomplete_select_related_fields', None):
+            qs = qs.select_related(*self.model_cls.autocomplete_select_related_fields())
+
+        if getattr(self.model_cls, 'autocomplete_prefetch_related_fields', None):
+            qs = qs.prefetch_related(*self.model_cls.autocomplete_prefetch_related_fields())
+
+        if getattr(self.model_cls, 'autocomplete_queryset_filters', None):
+            filters = self.model_cls.autocomplete_queryset_filters()
+            qs = qs.filter(**filters)
 
         if self.cleaned_data['q']:
-            if getattr(self.model_cls, 'autocomplete_base_filters', None):
-                filters = self.model_cls.autocomplete_base_filters()
-                qs = qs.filter(**filters)
             if getattr(self.model_cls, 'autocomplete_search_fields', None):
                 search_fields = self.model_cls.autocomplete_search_fields()
-                filter_data = [Q((field + '__icontains', self.cleaned_data['q'])) for field in search_fields]
-                # if self.cleaned_data['object_id']:
-                #     filter_data.append(Q(pk=self.cleaned_data['object_id']))
-                qs = qs.filter(reduce(operator.or_, filter_data)).distinct()
+                filter_data = [
+                    Q(**{f"{field}__icontains": self.cleaned_data['q']})
+                    for field in search_fields
+                ]
+                filter_query = reduce(operator.or_, filter_data)
+                qs = qs.filter(filter_query).distinct()
             else:
                 qs = qs.none()
 
@@ -145,13 +154,17 @@ class ModelLookupForm(forms.Form):
         page = self.cleaned_data['page'] or 1
         offset = (page - 1) * limit
 
-        items = list(map(
-            lambda instance: {'id': instance.pk, 'text': get_model_instance_label(instance)},
-            qs.distinct()[offset:offset + limit]
-        ))
-        total = qs.count()
+        items = [
+            {
+                'id': instance.pk,
+                'text': get_model_instance_label(instance)
+            }
+            for instance in qs.distinct()[offset:offset + limit]
+        ]
         
-        # important to have a possibility to select an empty value         
+        total = qs.count()
+
+        # gives a possibility to select an empty value
         items.insert(0, {'id': 0, 'text': '----------'})
 
         return items, total
