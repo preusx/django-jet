@@ -79,6 +79,15 @@ def eval_func(func_path, request):
         return func_path
 
 
+def round_value(val):
+    try:
+        int_val = int(val)
+        if int_val > 99:
+            return f'99+'
+        return val
+    except ValueError:
+        return val
+
 
 def get_app_list(context, order=True):
     admin_site = get_admin_site(context)
@@ -378,7 +387,7 @@ def get_menu_items(context):
             if 'counter' in data:
                 count = eval_func(data['counter'], request)
                 if not count is None:
-                    item['counter'] = count
+                    item['counter'] = round_value(count)
 
             return item
 
