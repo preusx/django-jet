@@ -59,6 +59,9 @@ class JsonResponse(HttpResponse):
         super(JsonResponse, self).__init__(content=data, **kwargs)
 
 
+class EvalFuncException(BaseException):
+    ...
+
 
 def eval_func(func_path, request):
     try:
@@ -374,7 +377,7 @@ def get_menu_items(context):
             request = context.get('request', None)
             if 'counter' in data:
                 count = eval_func(data['counter'], request)
-                if count:
+                if not count is None:
                     item['counter'] = count
 
             return item
