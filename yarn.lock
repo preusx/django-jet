@@ -2192,9 +2192,9 @@ pbkdf2@^3.0.3:
   dependencies:
     create-hmac "^1.1.2"
 
-"perfect-scrollbar@git://github.com/noraesae/perfect-scrollbar#0.6.5":
+"perfect-scrollbar@git://github.com/mdbootstrap/perfect-scrollbar#0.6.5":
   version "0.6.5"
-  resolved "git://github.com/noraesae/perfect-scrollbar#6cbb4a9b9d9fb4cb66eea3aa0277deff9466312f"
+  resolved "git://github.com/mdbootstrap/perfect-scrollbar#6cbb4a9b9d9fb4cb66eea3aa0277deff9466312f"
 
 performance-now@^0.2.0:
   version "0.2.0"
