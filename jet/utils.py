@@ -1,5 +1,6 @@
 import datetime
 import json
+import inspect
 from django.template import Context
 from django.utils import translation
 from jet import settings
@@ -19,6 +20,7 @@ try:
 except ImportError: # Django 1.11
     from django.urls import reverse, resolve, NoReverseMatch
 
+from django.utils.module_loading import import_module
 from django.contrib.admin import AdminSite
 from django.utils.encoding import smart_text
 from django.utils.text import capfirst
@@ -55,6 +57,36 @@ class JsonResponse(HttpResponse):
         kwargs.setdefault('content_type', 'application/json')
         data = json.dumps(data, cls=encoder)
         super(JsonResponse, self).__init__(content=data, **kwargs)
+
+
+class EvalFuncException(BaseException):
+    ...
+
+
+def eval_func(func_path, request):
+    try:
+        module_str = '.'.join(func_path.split('.')[:-1])
+        func_str = func_path.split('.')[-1:][0]
+        module = import_module(module_str)
+        func = getattr(module, func_str)
+        if callable(func):
+            args, *_ = inspect.getfullargspec(func)
+            if 'request' in args:
+                return func(request)
+            return func()
+
+    except EvalFuncException:
+        return func_path
+
+
+def round_value(val):
+    try:
+        int_val = int(val)
+        if int_val > 99:
+            return f'99+'
+        return val
+    except ValueError:
+        return val
 
 
 def get_app_list(context, order=True):
@@ -350,6 +382,12 @@ def get_menu_items(context):
 
             if 'permissions' in data:
                 item['has_perms'] = item.get('has_perms', True) and context['user'].has_perms(data['permissions'])
+
+            request = context.get('request', None)
+            if 'counter' in data:
+                count = eval_func(data['counter'], request)
+                if not count is None:
+                    item['counter'] = round_value(count)
 
             return item
 
