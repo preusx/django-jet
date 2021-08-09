@@ -201,6 +201,7 @@
     &, &:visited, &:hover {
       display: flex;
       justify-items: center;
+      align-items: center;
       color: $sidebar-link-color;
       padding: 8px 12px 8px 20px;
       vertical-align: middle;
