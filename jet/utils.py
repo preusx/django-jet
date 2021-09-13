@@ -352,7 +352,7 @@ def get_menu_items(context):
         app_list = []
 
         def get_menu_item_app_model(app_label, data):
-            item = {'has_perms': True}
+            item = {'has_perms': False}
 
             if 'name' in data:
                 parts = data['name'].split('.', 2)
@@ -421,6 +421,11 @@ def get_menu_items(context):
 
             item['pinned'] = item['app_label'] in pinned_apps
 
+            item_models: list = item['items']
+            allowed_model_exist = any(
+                (model_data['has_perms'] for model_data in item_models)
+            )
+            item['has_perms'] = allowed_model_exist and item['has_perms']
             return item
 
         for data in custom_app_list:
