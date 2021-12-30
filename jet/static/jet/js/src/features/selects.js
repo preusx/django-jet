@@ -222,7 +222,7 @@ Select2.prototype = {
             self.initSelect($select, DropdownAdapter);
         });
 
-        $('select').trigger('select:init');
+        $('select').not('[no-jet]').trigger('select:init');
 
         $('.inline-group').on('inline-group-row:added', function(e, $inlineItem) {
             $inlineItem.find('select').trigger('select:init');
