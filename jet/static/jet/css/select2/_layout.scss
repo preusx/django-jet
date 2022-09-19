@@ -159,4 +159,8 @@
     display: block;
     padding: 6px;
   }
+  .select2-dropdown--below {
+    width: auto !important;
+    min-width: 300px;
+  }
 }
