@@ -7,6 +7,8 @@ try:
 except ImportError: # Django 1.11
     from django.urls import reverse
 
+from django.db import models
+from django.db import connection
 from django.forms import CheckboxInput, ModelChoiceField, Select, ModelMultipleChoiceField, SelectMultiple
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.utils.formats import get_format
@@ -25,6 +27,7 @@ except ImportError:
 
 register = template.Library()
 assignment_tag = register.assignment_tag if hasattr(register, 'assignment_tag') else register.simple_tag
+EMPTY = object()
 
 
 @assignment_tag
@@ -171,15 +174,60 @@ def jet_sibling_object(context, next):
         return
 
     sibling_object = None
-    object_pks = list(queryset.values_list('pk', flat=True))
 
-    try:
-        index = object_pks.index(original.pk)
-        sibling_index = index + 1 if next else index - 1
-        exists = sibling_index < len(object_pks) if next else sibling_index >= 0
-        sibling_object = queryset.get(pk=object_pks[sibling_index]) if exists else None
-    except ValueError:
-        pass
+    sibling_ids = context.get('_object_sibling_ids', None)
+
+    if sibling_ids is None:
+        order_by = lambda: [
+            models.F(field[1:]).desc()
+            if field.startswith('-') else
+            models.F(field).asc()
+            for field in queryset.query.order_by
+        ]
+        query = (
+            queryset
+            .annotate(
+                _id=models.F('pk'),
+                _prev=models.Window(
+                    expression=models.Aggregate('pk', function='lag'),
+                    order_by=order_by(),
+                ),
+                _next=models.Window(
+                    expression=models.Aggregate('pk', function='lead'),
+                    order_by=order_by(),
+                ),
+            )
+            .values_list('_prev', '_id', '_next')
+        )
+
+        with connection.cursor() as cursor:
+            sql = (
+                'select * from (%s) x where %s = x._id;'
+                %
+                (str(query.query), original.pk)
+            )
+            cursor.execute(sql)
+            sibling_ids = cursor.fetchone()
+            context['_object_sibling_ids'] = sibling_ids or ()
+
+    if not sibling_ids:
+        return
+
+    sibling_index = 2 if next else 0
+    sibling_id = sibling_ids[sibling_index]
+
+    if sibling_id is None:
+        return
+
+    key = '_sibling_object_' + str(sibling_id)
+    sibling_object = context.get(key, EMPTY)
+
+    if sibling_object is EMPTY:
+        sibling_object = queryset.get(pk=sibling_id)
+        context[key] = sibling_object
+
+    if sibling_object is None:
+        return
 
     if sibling_object is None:
         return
