@@ -148,18 +148,47 @@ def jet_get_side_menu_compact():
     return settings.JET_SIDE_MENU_COMPACT
 
 
-@assignment_tag
-def jet_change_form_sibling_links_enabled():
-    return settings.JET_CHANGE_FORM_SIBLING_LINKS
-
-
-def jet_sibling_object(context, next):
+def check_original_sibling_links_availability(context):
     original = context.get('original')
 
     if not original:
+        return False, None
+
+    if not settings.JET_CHANGE_FORM_SIBLING_LINKS:
+        return False, original
+
+    model = type(original)
+    meta = model._meta
+
+    if (
+        '.'.join((meta.app_label, meta.object_name))
+        in
+        settings.JET_CHANGE_FORM_SIBLING_LINKS_RESTRICT_MODELS
+        or
+        '.'.join((meta.app_label, meta.model_name))
+        in
+        settings.JET_CHANGE_FORM_SIBLING_LINKS_RESTRICT_MODELS
+    ):
+        return False, original
+
+    return True, original
+
+
+@assignment_tag(takes_context=True)
+def jet_change_form_sibling_links_enabled(context):
+    can, original = check_original_sibling_links_availability(context)
+
+    return can if original is not None else settings.JET_CHANGE_FORM_SIBLING_LINKS
+
+
+def jet_sibling_object(context, next):
+    can, original = check_original_sibling_links_availability(context)
+
+    if not can or original is None:
         return
 
     model = type(original)
+
     preserved_filters_plain = context.get('preserved_filters', '')
     preserved_filters = dict(parse_qsl(preserved_filters_plain))
     admin_site = get_admin_site(context)
@@ -184,7 +213,6 @@ def jet_sibling_object(context, next):
             models.F(field).asc()
             for field in queryset.query.order_by
         ]
-        print(order_by())
         next_fields = [
             (field[1:], 'lte') # desc
             if field.startswith('-') else
