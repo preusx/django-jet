@@ -201,12 +201,8 @@ def jet_sibling_object(context, next):
         )
 
         with connection.cursor() as cursor:
-            sql = (
-                'select * from (%s) x where %s = x._id;'
-                %
-                (str(query.query), original.pk)
-            )
-            cursor.execute(sql)
+            sql = f'select _prev, _id, _next from ({str(query.query)}) x where %s = x._id;'
+            cursor.execute(sql, [original.pk])
             sibling_ids = cursor.fetchone()
             context['_object_sibling_ids'] = sibling_ids or ()
 
