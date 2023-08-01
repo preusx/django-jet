@@ -184,27 +184,100 @@ def jet_sibling_object(context, next):
             models.F(field).asc()
             for field in queryset.query.order_by
         ]
-        query = (
+        print(order_by())
+        next_fields = [
+            (field[1:], 'lte') # desc
+            if field.startswith('-') else
+            (field, 'gte') # asc
+            for field in queryset.query.order_by
+            if '__' not in field
+        ]
+
+        if len(next_fields):
+            next_fields += [('pk', next_fields[0][1])]
+        else:
+            next_fields += [('pk', 'gte')]
+
+        next_values = [
+            (field, dr, getattr(original, field, None))
+            for field, dr in next_fields
+        ]
+
+        all_q = models.Q()
+        eq_q = models.Q()
+
+        for field, dr, value in next_values:
+            if value is None:
+                continue
+
+            all_q |= models.Q(**{f'{field}__{dr}': value}) & eq_q
+            eq_q &= models.Q(**{field: value})
+
+        next_val = (
             queryset
-            .annotate(
-                _id=models.F('pk'),
-                _prev=models.Window(
-                    expression=models.Aggregate('pk', function='lag'),
-                    order_by=order_by(),
-                ),
-                _next=models.Window(
-                    expression=models.Aggregate('pk', function='lead'),
-                    order_by=order_by(),
-                ),
-            )
-            .values_list('_prev', '_id', '_next')
+            .filter(all_q)
+            .order_by(*(
+                ('-' if dr == 'lte' else '') + field
+                for field, dr in next_fields
+            ))
+            .exclude(pk=original.pk)
+            .values_list('pk', flat=True)
+            .first()
         )
 
-        with connection.cursor() as cursor:
-            sql = f'select _prev, _id, _next from ({str(query.query)}) x where %s = x._id;'
-            cursor.execute(sql, [original.pk])
-            sibling_ids = cursor.fetchone()
-            context['_object_sibling_ids'] = sibling_ids or ()
+        all_q = models.Q()
+        eq_q = models.Q()
+
+        for field, dr, value in next_values:
+            if value is None:
+                continue
+
+            dr = 'gte' if dr == 'lte' else 'lte'
+            all_q |= models.Q(**{f'{field}__{dr}': value}) & eq_q
+            eq_q &= models.Q(**{field: value})
+
+        prev_val = (
+            queryset
+            .filter(all_q)
+            .order_by(*(
+                ('-' if dr == 'gte' else '') + field
+                for field, dr in next_fields
+            ))
+            .exclude(pk=original.pk)
+            .values_list('pk', flat=True)
+            .first()
+        )
+
+        if prev_val is None and next_val is None:
+            sibling_ids = None
+        else:
+            sibling_ids = (prev_val, original.pk, next_val)
+
+        context['_object_sibling_ids'] = sibling_ids or ()
+
+        # query = (
+        #     queryset
+        #     .annotate(
+        #         _id=models.F('pk'),
+        #         _prev=models.Window(
+        #             expression=models.Aggregate('pk', function='lag'),
+        #             order_by=order_by(),
+        #         ),
+        #         _next=models.Window(
+        #             expression=models.Aggregate('pk', function='lead'),
+        #             order_by=order_by(),
+        #         ),
+        #     )
+        #     .values_list('_prev', '_id', '_next')
+        # )
+
+        # with connection.cursor() as cursor:
+        #     sql = f'select _prev, _id, _next from ({str(query.query)}) x where %s = x._id;'
+        #     cursor.execute(sql, [original.pk])
+        #     sibling_ids = cursor.fetchone()
+        #     context['_object_sibling_ids'] = sibling_ids or ()
+
+        # print(sibling_ids, prev_val, next_val)
 
     if not sibling_ids:
         return
