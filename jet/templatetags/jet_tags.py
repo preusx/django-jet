@@ -148,18 +148,47 @@ def jet_get_side_menu_compact():
     return settings.JET_SIDE_MENU_COMPACT
 
 
-@assignment_tag
-def jet_change_form_sibling_links_enabled():
-    return settings.JET_CHANGE_FORM_SIBLING_LINKS
-
-
-def jet_sibling_object(context, next):
+def check_original_sibling_links_availability(context):
     original = context.get('original')
 
     if not original:
+        return False, None
+
+    if not settings.JET_CHANGE_FORM_SIBLING_LINKS:
+        return False, original
+
+    model = type(original)
+    meta = model._meta
+
+    if (
+        '.'.join((meta.app_label, meta.object_name))
+        in
+        settings.JET_CHANGE_FORM_SIBLING_LINKS_RESTRICT_MODELS
+        or
+        '.'.join((meta.app_label, meta.model_name))
+        in
+        settings.JET_CHANGE_FORM_SIBLING_LINKS_RESTRICT_MODELS
+    ):
+        return False, original
+
+    return True, original
+
+
+@assignment_tag(takes_context=True)
+def jet_change_form_sibling_links_enabled(context):
+    can, original = check_original_sibling_links_availability(context)
+
+    return can if original is not None else settings.JET_CHANGE_FORM_SIBLING_LINKS
+
+
+def jet_sibling_object(context, next):
+    can, original = check_original_sibling_links_availability(context)
+
+    if not can or original is None:
         return
 
     model = type(original)
+
     preserved_filters_plain = context.get('preserved_filters', '')
     preserved_filters = dict(parse_qsl(preserved_filters_plain))
     admin_site = get_admin_site(context)
@@ -184,27 +213,99 @@ def jet_sibling_object(context, next):
             models.F(field).asc()
             for field in queryset.query.order_by
         ]
-        query = (
+        next_fields = [
+            (field[1:], 'lte') # desc
+            if field.startswith('-') else
+            (field, 'gte') # asc
+            for field in queryset.query.order_by
+            if '__' not in field
+        ]
+
+        if len(next_fields):
+            next_fields += [('pk', next_fields[0][1])]
+        else:
+            next_fields += [('pk', 'gte')]
+
+        next_values = [
+            (field, dr, getattr(original, field, None))
+            for field, dr in next_fields
+        ]
+
+        all_q = models.Q()
+        eq_q = models.Q()
+
+        for field, dr, value in next_values:
+            if value is None:
+                continue
+
+            all_q |= models.Q(**{f'{field}__{dr}': value}) & eq_q
+            eq_q &= models.Q(**{field: value})
+
+        next_val = (
             queryset
-            .annotate(
-                _id=models.F('pk'),
-                _prev=models.Window(
-                    expression=models.Aggregate('pk', function='lag'),
-                    order_by=order_by(),
-                ),
-                _next=models.Window(
-                    expression=models.Aggregate('pk', function='lead'),
-                    order_by=order_by(),
-                ),
-            )
-            .values_list('_prev', '_id', '_next')
+            .filter(all_q)
+            .order_by(*(
+                ('-' if dr == 'lte' else '') + field
+                for field, dr in next_fields
+            ))
+            .exclude(pk=original.pk)
+            .values_list('pk', flat=True)
+            .first()
         )
 
-        with connection.cursor() as cursor:
-            sql = f'select _prev, _id, _next from ({str(query.query)}) x where %s = x._id;'
-            cursor.execute(sql, [original.pk])
-            sibling_ids = cursor.fetchone()
-            context['_object_sibling_ids'] = sibling_ids or ()
+        all_q = models.Q()
+        eq_q = models.Q()
+
+        for field, dr, value in next_values:
+            if value is None:
+                continue
+
+            dr = 'gte' if dr == 'lte' else 'lte'
+            all_q |= models.Q(**{f'{field}__{dr}': value}) & eq_q
+            eq_q &= models.Q(**{field: value})
+
+        prev_val = (
+            queryset
+            .filter(all_q)
+            .order_by(*(
+                ('-' if dr == 'gte' else '') + field
+                for field, dr in next_fields
+            ))
+            .exclude(pk=original.pk)
+            .values_list('pk', flat=True)
+            .first()
+        )
+
+        if prev_val is None and next_val is None:
+            sibling_ids = None
+        else:
+            sibling_ids = (prev_val, original.pk, next_val)
+
+        context['_object_sibling_ids'] = sibling_ids or ()
+
+        # query = (
+        #     queryset
+        #     .annotate(
+        #         _id=models.F('pk'),
+        #         _prev=models.Window(
+        #             expression=models.Aggregate('pk', function='lag'),
+        #             order_by=order_by(),
+        #         ),
+        #         _next=models.Window(
+        #             expression=models.Aggregate('pk', function='lead'),
+        #             order_by=order_by(),
+        #         ),
+        #     )
+        #     .values_list('_prev', '_id', '_next')
+        # )
+
+        # with connection.cursor() as cursor:
+        #     sql = f'select _prev, _id, _next from ({str(query.query)}) x where %s = x._id;'
+        #     cursor.execute(sql, [original.pk])
+        #     sibling_ids = cursor.fetchone()
+        #     context['_object_sibling_ids'] = sibling_ids or ()
+
+        # print(sibling_ids, prev_val, next_val)
 
     if not sibling_ids:
         return
