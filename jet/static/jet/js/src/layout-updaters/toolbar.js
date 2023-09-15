@@ -23,10 +23,10 @@ ToolbarUpdater.prototype = {
         var filterName;
         var $search = $toolbar.find('#searchbar');
 
-        $changelist.find('#changelist-filter').children().each(function() {
+        $changelist.find('#changelist-filter,#changelist-filter > details').children().each(function() {
             var $element = $(this);
 
-            if ($element.prop('tagName') == 'H3') {
+            if (['H3', 'SUMMARY'].includes($element.prop('tagName'))) {
                 filterName = $element.text();
             } else if ($element.prop('tagName') == 'UL') {
                 var $select = $('<select>');
