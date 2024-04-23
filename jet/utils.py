@@ -22,14 +22,14 @@ except ImportError: # Django 1.11
 
 from django.utils.module_loading import import_module
 from django.contrib.admin import AdminSite
-from django.utils.encoding import smart_text
+from django.utils.encoding import smart_str
 from django.utils.text import capfirst
 from django.contrib import messages
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 from django.utils.functional import Promise
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib import admin
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from django.utils.text import slugify
 
 try:
@@ -182,14 +182,14 @@ class LazyDateTimeEncoder(json.JSONEncoder):
         if isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date):
             return obj.isoformat()
         elif isinstance(obj, Promise):
-            return force_text(obj)
+            return force_str(obj)
         return self.encode(obj)
 
 
 def get_model_instance_label(instance):
     if getattr(instance, "related_label", None):
         return instance.related_label()
-    return smart_text(instance)
+    return smart_str(instance)
 
 
 class SuccessMessageMixin(object):
@@ -262,6 +262,12 @@ def get_model_queryset(admin_site, model, request, preserved_filters=None):
         change_list_args.append(sortable_by)
     except AttributeError:
         # django version < 2.1
+        pass
+
+    try:
+        change_list_args.append(model_admin.search_help_text)
+    except AttributeError:
+        # django version < 4.0
         pass
 
     try:
