@@ -25,7 +25,4 @@ $(document).ready(function() {
     $('#branding').each(function() {
         new BrandingUpdater($(this)).run();
     });
-    if ($('body.login').length != 0) {
-        $('<img>').attr('src', '/static/jet/ping.gif');
-    }
 });
