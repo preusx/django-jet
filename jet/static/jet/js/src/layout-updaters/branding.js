@@ -26,6 +26,6 @@ $(document).ready(function() {
         new BrandingUpdater($(this)).run();
     });
     if ($('body.login').length != 0) {
-        $('<img>').attr('src', '/static/jet/ping.gif');
+        $('<img>').attr('src', '/static/jet/img/ping.gif');
     }
 });
