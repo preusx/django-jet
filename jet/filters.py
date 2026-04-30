@@ -1,6 +1,7 @@
 from django.contrib.admin import RelatedFieldListFilter
 from django.utils.encoding import smart_str
 from django.utils.html import format_html
+
 try:
     from django.core.urlresolvers import reverse
 except ImportError: # Django 1.11
@@ -60,10 +61,11 @@ class RelatedFieldAjaxListFilter(RelatedFieldListFilter):
 
 try:
     from collections import OrderedDict
+
     from django import forms
     from django.contrib.admin.widgets import AdminDateWidget
-    from rangefilter.filter import DateRangeFilter as OriginalDateRangeFilter
     from django.utils.translation import ugettext as _
+    from rangefilter.filter import DateRangeFilter as OriginalDateRangeFilter
 
 
     class DateRangeFilter(OriginalDateRangeFilter):
